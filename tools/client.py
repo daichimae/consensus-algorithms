@@ -14,6 +14,7 @@ Author: Daichi Mae
 from urllib.request import Request, urlopen
 import json
 from pprint import pprint
+import random
 
 def request(host, method, api, args, data=None):
     """
@@ -114,18 +115,31 @@ def split_foundation_tokens(host):
                     "recipient": address}
             pprint(request(host, "POST", "/payment", [], data))
 
-def make_random_transactions(n, lower=1, upper=100, fee=1):
+def make_random_transactions(host, n, lower=1, upper=100, fee=1):
     """
-    Make n transactions. The nodes and the amount are randomly selected for
-    each transactions.
+    Make n random transactions. The nodes and the amount are randomly selected
+    for each transactions.
 
+    :param host: host to get the list of peers from
     :param n: number of transactions
     :param lower: lower bound of transaction amounts
     :param upper: upper bound of transaction amounts
     :prama fee: amount of transaction fees
     """
-    
-            
+    addresses = get_all_addresses(host)
+
+    for _ in range(n):
+        sender = random.choice(addresses)
+        recipient = sender
+        while sender == recipient:
+            recipient = random.choice(addresses)
+        amount = random.randint(lower, upper)
+        data = {"amount": amount,
+                "fee": 1,
+                "sender": sender,
+                "recipient": recipient}
+        pprint(request(host, "POST", "/payment", [], data))
+
 def test():
     host = "http://localhost:9085"
     split_foundation_tokens(host)
@@ -228,6 +242,7 @@ def main():
             break
         elif command[0] == "test":
             split_foundation_tokens(host)
+            make_random_transactions(host, 30, 1, 100)
         else:
             print("Invalid command: {0}".format(command[0]))
     

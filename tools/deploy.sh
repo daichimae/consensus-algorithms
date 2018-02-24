@@ -7,9 +7,9 @@
 #
 ############################################################
 
-number_of_nodes=2
+number_of_nodes=3
 project_directory="/home/daichi/IdeaProjects/ScorexTestingMore/"
-script_path="/home/daichi/rit/capstone/tools/client.py"
+script_path="$project_directory"tools/client.py
 window_size="44x12"
 
 # Create a client to communicate with the nodes
