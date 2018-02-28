@@ -7,10 +7,11 @@ import com.google.common.primitives.Longs
 import scorex.account.{Account, PrivateKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.ConsensusModule
-import scorex.transaction.TransactionModule
-import scorex.utils.ScorexLogging
+import scorex.transaction.{BalanceSheet, Transaction, TransactionModule}
+import scorex.utils.{NTP, ScorexLogging}
 
 import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
 /**
@@ -23,6 +24,8 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
   import BitcoinConsensusModule._
 
   implicit val consensusModule = this
+
+  val version = 1: Byte
 
   /**
     * Calculate the hash value of a block.
@@ -51,7 +54,46 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
     transactionModule.blockStorage.history.score()
 
   override def generateNextBlock[TransactionalBlockData](account: PrivateKeyAccount)
-  (implicit transactionModule: TransactionModule[TransactionalBlockData]): Future[Option[Block]] = ???
+  (implicit transactionModule: TransactionModule[TransactionalBlockData]): Future[Option[Block]] = {
+    val lastBlock = transactionModule.blockStorage.history.lastBlock
+    val lastBlockConsensusData = consensusBlockData(lastBlock)
+
+    val lastBlockTime = lastBlock.timestampField.value
+
+    val currentTime = NTP.correctedTime()
+
+    // Generate a random number between 0 to 2^32
+    val nonce = ((new scala.util.Random).nextInt() + (2^32)/2).toLong
+    val target = lastBlockConsensusData.target
+
+    val consensusData = new BitcoinConsensusBlockData {
+      override val nonce: Long = nonce
+      override val target: BigInt = target
+    }
+
+    val eta = (currentTime - lastBlockTime) / 1000
+
+    val unconfirmed = transactionModule.packUnconfirmed()
+    log.debug(s"Build block with ${unconfirmed.asInstanceOf[Seq[Transaction]].size} transactions")
+    log.debug(s"Block time interval is $eta seconds ")
+
+    val newBlock = Block.buildAndSign(
+      version,
+      currentTime,
+      lastBlock.uniqueId,
+      consensusData,
+      unconfirmed,
+      account)
+
+    val hash = calculateBlockHash(newBlock)
+
+    log.debug(s"hash: $hash, target: $target, generating ${hash < target}, eta $eta, " +
+      s"nonce:  $nonce")
+
+    if (hash < target) {
+      Future(Some(newBlock))
+    } else Future(None)
+  }
 
   override def consensusBlockData(block: Block): BitcoinConsensusBlockData =
     block.consensusDataField.value match {
@@ -74,9 +116,22 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
   override def formBlockData(data: BitcoinConsensusBlockData): BlockField[BitcoinConsensusBlockData] =
     BitcoinConsensusBlockField(data)
+
+  def generatingBalance[TransactionalBlockData]
+  (address: String)(implicit transactionModule: TransactionModule[TransactionalBlockData]): Long = {
+    transactionModule.blockStorage.state.asInstanceOf[BalanceSheet]
+      .balanceWithConfirmations(address, generatingBalanceDepth)
+  }
+
+  def generatingBalance[TransactionalBlockData]
+  (account: Account)(implicit transactionModule: TransactionModule[TransactionalBlockData]): Long =
+    generatingBalance(account.address)
+
+  val generatingBalanceDepth: Int = EffectiveBalanceDepth
 }
+
 
 object BitcoinConsensusModule {
   val NonceLength = 8
-  val
+  val EffectiveBalanceDepth = 50
 }

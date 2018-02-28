@@ -1,10 +1,10 @@
 import akka.actor.Props
+import consensus.bitcoin.BitcoinConsensusModule
+import consensus.bitcoin.api.http.BitcoinConsensusApiRoute
 import scorex.account.Account
 import scorex.api.http._
 import scorex.app.{Application, ApplicationVersion}
 import scorex.block.BlockField
-import scorex.consensus.nxt.NxtLikeConsensusModule
-import scorex.consensus.nxt.api.http.NxtConsensusApiRoute
 import scorex.network._
 import scorex.settings.Settings
 import scorex.transaction.SimpleTransactionModule.StoredInBlock
@@ -14,7 +14,7 @@ import scala.reflect.runtime.universe._
 
 /**
   * A simple blockchain application with SimpleTransactionModule and
-  * NxtLikeConsensusModule.
+  * BitcoinConsensusModule.
   *
   * @param settingsFilename name of the settings file
   */
@@ -27,7 +27,7 @@ class MyApplication(val settingsFilename: String) extends Application {
   }
 
   // Define consensus and transaction modules of your application
-  override implicit lazy val consensusModule = new NxtLikeConsensusModule()
+  override implicit lazy val consensusModule = new BitcoinConsensusModule()
   override implicit lazy val transactionModule= new SimpleTransactionModule()(settings, this) {
     override def genesisData: BlockField[StoredInBlock] = {
       val timestamp = 0L
@@ -46,7 +46,7 @@ class MyApplication(val settingsFilename: String) extends Application {
   override lazy val apiRoutes = Seq(
     BlocksApiRoute(this),
     TransactionsApiRoute(this),
-    new NxtConsensusApiRoute(this),
+    new BitcoinConsensusApiRoute(this),
     WalletApiRoute(this),
     PaymentApiRoute(this),
     UtilsApiRoute(this),
@@ -58,7 +58,7 @@ class MyApplication(val settingsFilename: String) extends Application {
   override lazy val apiTypes = Seq(
     typeOf[BlocksApiRoute],
     typeOf[TransactionsApiRoute],
-    typeOf[NxtConsensusApiRoute],
+    typeOf[BitcoinConsensusApiRoute],
     typeOf[WalletApiRoute],
     typeOf[PaymentApiRoute],
     typeOf[UtilsApiRoute],
