@@ -3,7 +3,7 @@ package consensus.bitcoin
 import java.math.BigInteger
 import java.security.MessageDigest
 
-import com.google.common.primitives.Longs
+import com.google.common.primitives.{Bytes, Longs}
 import scorex.account.{Account, PrivateKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.ConsensusModule
@@ -63,13 +63,13 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
     val currentTime = NTP.correctedTime()
 
-    // Generate a random number between 0 to 2^32 - 1
-    val generatedNonce = (new scala.util.Random).nextInt().toLong + (2l^31)
-    val generatedTarget = lastBlockConsensusData.target
+    // Generate a random number between 0 to 2^32 - 1 (unsigned 32-bit integer)
+    val generatedNonce = (new scala.util.Random).nextInt().toLong + 2147483648l
+    val lastTarget = lastBlockConsensusData.target
 
     val consensusData = new BitcoinConsensusBlockData {
       override val nonce: Long = generatedNonce
-      override val target: BigInt = generatedTarget
+      override val target: BigInt = lastTarget
     }
 
     val eta = (currentTime - lastBlockTime) / 1000
@@ -90,6 +90,12 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
         log.error("Failed to build block:", e)
         Failure(e)
     }.toOption)*/
+    /*println("----------------------------------------------------------------------------------------")
+    val byteArray = Bytes.ensureCapacity(Longs.toByteArray(12345l)
+      ++ new BigInteger("00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16).toByteArray, 8, 0)
+    println(Longs.fromByteArray(byteArray.take(NonceLength)))
+    println(new BigInteger(byteArray.takeRight(byteArray.size - NonceLength)))
+    println("----------------------------------------------------------------------------------------")*/
 
     val newBlock = Block.buildAndSign(
       version,
@@ -101,10 +107,10 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
     val hash = calculateBlockHash(newBlock)
 
-    log.debug(s"hash: $hash, target: $generatedTarget, generating ${hash < generatedTarget}, eta $eta, " +
+    log.debug(s"hash: $hash, target: $lastTarget, generating ${hash < lastTarget}, eta $eta, " +
       s"nonce:  $generatedNonce")
 
-    if (hash < generatedTarget) {
+    if (hash < lastTarget) {
       Future(Some(newBlock))
     } else Future(None)
   }
@@ -118,7 +124,7 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
   override def parseBytes(bytes: Array[Byte]): Try[BlockField[BitcoinConsensusBlockData]] =
     Try { BitcoinConsensusBlockField(new BitcoinConsensusBlockData {
       override val nonce: Long = Longs.fromByteArray(bytes.take(NonceLength))
-      override val target: BigInt = new BigInteger(bytes)
+      override val target: BigInt = new BigInteger(bytes.takeRight(bytes.size - NonceLength))
     })}
 
   override def genesisData: BlockField[BitcoinConsensusBlockData] =
