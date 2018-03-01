@@ -3,7 +3,7 @@ package consensus.bitcoin
 import java.math.BigInteger
 import java.security.MessageDigest
 
-import com.google.common.primitives.{Bytes, Longs}
+import com.google.common.primitives.Longs
 import scorex.account.{Account, PrivateKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.ConsensusModule
@@ -12,7 +12,7 @@ import scorex.utils.{NTP, ScorexLogging}
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Failure, Try}
+import scala.util.Try
 
 /**
   * This class represents a Bitcoin-style Proof-of-Work consensus module.
@@ -38,9 +38,8 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
   }
 
   override def isValid[TransactionalBlockData]
-  (block: Block)(implicit transactionModule: TransactionModule[TransactionalBlockData]): Boolean = {
+  (block: Block)(implicit transactionModule: TransactionModule[TransactionalBlockData]): Boolean =
     calculateBlockHash(block) < consensusBlockData(block).target
-  }
 
   override def feesDistribution(block: Block): Map[Account, Long] = {
     val forger = block.consensusModule.generators(block).ensuring(_.size == 1).head
@@ -52,7 +51,10 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
   override def generators(block: Block): Seq[Account] = Seq(block.signerDataField.value.generator)
 
   override def blockScore(block: Block)(implicit transactionModule: TransactionModule[_]): BigInt =
-    transactionModule.blockStorage.history.score()
+    transactionModule.blockStorage.history.heightOf(block) match {
+      case Some(i) => i
+      case None => 1
+    }
 
   override def generateNextBlock[TransactionalBlockData](account: PrivateKeyAccount)
   (implicit transactionModule: TransactionModule[TransactionalBlockData]): Future[Option[Block]] = {
@@ -65,18 +67,16 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
     // Generate a random number between 0 to 2^32 - 1 (unsigned 32-bit integer)
     val generatedNonce = (new scala.util.Random).nextInt().toLong + 2147483648l
-    val lastTarget = lastBlockConsensusData.target
+    val currentTarget = lastBlockConsensusData.target
 
     val consensusData = new BitcoinConsensusBlockData {
       override val nonce: Long = generatedNonce
-      override val target: BigInt = lastTarget
+      override val target: BigInt = currentTarget
     }
 
     val eta = (currentTime - lastBlockTime) / 1000
 
     val unconfirmed = transactionModule.packUnconfirmed()
-    log.debug(s"Build block with ${unconfirmed.asInstanceOf[Seq[Transaction]].size} transactions")
-    log.debug(s"Block time interval is $eta seconds ")
 
     /*val blockTry = Try(Block.buildAndSign(
       version,
@@ -90,12 +90,6 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
         log.error("Failed to build block:", e)
         Failure(e)
     }.toOption)*/
-    /*println("----------------------------------------------------------------------------------------")
-    val byteArray = Bytes.ensureCapacity(Longs.toByteArray(12345l)
-      ++ new BigInteger("00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16).toByteArray, 8, 0)
-    println(Longs.fromByteArray(byteArray.take(NonceLength)))
-    println(new BigInteger(byteArray.takeRight(byteArray.size - NonceLength)))
-    println("----------------------------------------------------------------------------------------")*/
 
     val newBlock = Block.buildAndSign(
       version,
@@ -107,10 +101,12 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
     val hash = calculateBlockHash(newBlock)
 
-    log.debug(s"hash: $hash, target: $lastTarget, generating ${hash < lastTarget}, eta $eta, " +
+    log.debug(s"hash: $hash, target: $currentTarget, generating ${hash < currentTarget}, eta $eta, " +
       s"nonce:  $generatedNonce")
 
-    if (hash < lastTarget) {
+    if (hash < currentTarget) {
+      log.debug(s"Build block with ${unconfirmed.asInstanceOf[Seq[Transaction]].size} transactions")
+      log.debug(s"Block time interval is $eta seconds ")
       Future(Some(newBlock))
     } else Future(None)
   }
