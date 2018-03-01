@@ -12,7 +12,7 @@ import scorex.utils.{NTP, ScorexLogging}
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 /**
   * This class represents a Bitcoin-style Proof-of-Work consensus module.
@@ -44,7 +44,8 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
   override def feesDistribution(block: Block): Map[Account, Long] = {
     val forger = block.consensusModule.generators(block).ensuring(_.size == 1).head
-    val fee = block.transactions.map(_.fee).sum
+    val fee = block.transactions.map(_.fee).sum + InitialMiningReward
+    //val reward = InitialMiningReward
     Map(forger -> fee)
   }
 
@@ -62,13 +63,13 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
     val currentTime = NTP.correctedTime()
 
-    // Generate a random number between 0 to 2^32
-    val nonce = ((new scala.util.Random).nextInt() + (2^32)/2).toLong
-    val target = lastBlockConsensusData.target
+    // Generate a random number between 0 to 2^32 - 1
+    val generatedNonce = (new scala.util.Random).nextInt().toLong + (2l^31)
+    val generatedTarget = lastBlockConsensusData.target
 
     val consensusData = new BitcoinConsensusBlockData {
-      override val nonce: Long = nonce
-      override val target: BigInt = target
+      override val nonce: Long = generatedNonce
+      override val target: BigInt = generatedTarget
     }
 
     val eta = (currentTime - lastBlockTime) / 1000
@@ -76,6 +77,19 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
     val unconfirmed = transactionModule.packUnconfirmed()
     log.debug(s"Build block with ${unconfirmed.asInstanceOf[Seq[Transaction]].size} transactions")
     log.debug(s"Block time interval is $eta seconds ")
+
+    /*val blockTry = Try(Block.buildAndSign(
+      version,
+      currentTime,
+      lastBlock.uniqueId,
+      consensusData,
+      unconfirmed,
+      account))
+    val newBlock = Future(blockTry.recoverWith {
+      case e =>
+        log.error("Failed to build block:", e)
+        Failure(e)
+    }.toOption)*/
 
     val newBlock = Block.buildAndSign(
       version,
@@ -87,10 +101,10 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
     val hash = calculateBlockHash(newBlock)
 
-    log.debug(s"hash: $hash, target: $target, generating ${hash < target}, eta $eta, " +
-      s"nonce:  $nonce")
+    log.debug(s"hash: $hash, target: $generatedTarget, generating ${hash < generatedTarget}, eta $eta, " +
+      s"nonce:  $generatedNonce")
 
-    if (hash < target) {
+    if (hash < generatedTarget) {
       Future(Some(newBlock))
     } else Future(None)
   }
@@ -134,4 +148,5 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 object BitcoinConsensusModule {
   val NonceLength = 8
   val EffectiveBalanceDepth = 50
+  val InitialMiningReward = 50
 }

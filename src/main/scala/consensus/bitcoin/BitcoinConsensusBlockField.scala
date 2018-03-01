@@ -17,6 +17,12 @@ case class BitcoinConsensusBlockField(override val value: BitcoinConsensusBlockD
 
   override def bytes: Array[Byte] = Bytes.ensureCapacity(Longs.toByteArray(value.nonce)
     ++ value.target.toByteArray, 8, 0)
+  /*override def bytes: Array[Byte] = {
+      println("EXECUTEDdddddddddddddddddddddddddddddfajsdfdjsaf;dsajfkdsal;jfd;j")
+      println(value.nonce)
+      println("--------------------------")
+      value.target.toByteArray
+    }*/
 
   override def json: JsObject = Json.obj(name -> Json.obj(
     "nonce" -> value.nonce,

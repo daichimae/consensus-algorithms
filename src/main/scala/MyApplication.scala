@@ -5,6 +5,8 @@ import scorex.account.Account
 import scorex.api.http._
 import scorex.app.{Application, ApplicationVersion}
 import scorex.block.BlockField
+import scorex.consensus.nxt.NxtLikeConsensusModule
+import scorex.consensus.nxt.api.http.NxtConsensusApiRoute
 import scorex.network._
 import scorex.settings.Settings
 import scorex.transaction.SimpleTransactionModule.StoredInBlock
@@ -27,6 +29,7 @@ class MyApplication(val settingsFilename: String) extends Application {
   }
 
   // Define consensus and transaction modules of your application
+  //override implicit lazy val consensusModule = new NxtLikeConsensusModule()
   override implicit lazy val consensusModule = new BitcoinConsensusModule()
   override implicit lazy val transactionModule= new SimpleTransactionModule()(settings, this) {
     override def genesisData: BlockField[StoredInBlock] = {
@@ -46,6 +49,7 @@ class MyApplication(val settingsFilename: String) extends Application {
   override lazy val apiRoutes = Seq(
     BlocksApiRoute(this),
     TransactionsApiRoute(this),
+    //new NxtConsensusApiRoute(this),
     new BitcoinConsensusApiRoute(this),
     WalletApiRoute(this),
     PaymentApiRoute(this),
@@ -58,6 +62,7 @@ class MyApplication(val settingsFilename: String) extends Application {
   override lazy val apiTypes = Seq(
     typeOf[BlocksApiRoute],
     typeOf[TransactionsApiRoute],
+    //typeOf[NxtConsensusApiRoute],
     typeOf[BitcoinConsensusApiRoute],
     typeOf[WalletApiRoute],
     typeOf[PaymentApiRoute],
