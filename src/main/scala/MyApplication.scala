@@ -32,7 +32,9 @@ class MyApplication(val settingsFilename: String) extends Application {
   //override implicit lazy val consensusModule = new NxtLikeConsensusModule()
   override implicit lazy val consensusModule = new BitcoinConsensusModule()
   override implicit lazy val transactionModule= new SimpleTransactionModule()(settings, this) {
-    override def genesisData: BlockField[StoredInBlock] = {
+    override val InitialBalance = 0l
+
+    /*override def genesisData: BlockField[StoredInBlock] = {
       val timestamp = 0L
       val totalBalance = InitialBalance
       val txs = List(
@@ -42,7 +44,7 @@ class MyApplication(val settingsFilename: String) extends Application {
           totalBalance, timestamp)
       )
       TransactionsBlockField(txs)
-    }
+    }*/
   }
 
   // Define API routes of your application

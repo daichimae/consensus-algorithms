@@ -34,7 +34,9 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
     * @return
     */
   private def calculateBlockHash(block: Block): BigInt = {
-    new BigInteger(1, MessageDigest.getInstance("SHA-256").digest(block.bytes))
+    new BigInteger(1,
+      MessageDigest.getInstance("SHA-256").digest(
+      MessageDigest.getInstance("SHA-256").digest(block.bytes)))
   }
 
   override def isValid[TransactionalBlockData]
@@ -43,9 +45,13 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
   override def feesDistribution(block: Block): Map[Account, Long] = {
     val forger = block.consensusModule.generators(block).ensuring(_.size == 1).head
-    val fee = block.transactions.map(_.fee).sum + InitialMiningReward
-    //val reward = InitialMiningReward
-    Map(forger -> fee)
+    val fee = block.transactions.map(_.fee).sum
+    val height = block.transactionModule.blockStorage.history.height()
+    val blockReward =
+      if (height == 1) 0
+      else InitialBlockReward / scala.math.pow(2, height / BlockRewardHalvingInterval).toInt
+
+    Map(forger -> (fee + blockReward))
   }
 
   override def generators(block: Block): Seq[Account] = Seq(block.signerDataField.value.generator)
@@ -125,9 +131,10 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
   override def genesisData: BlockField[BitcoinConsensusBlockData] =
     BitcoinConsensusBlockField(new BitcoinConsensusBlockData {
-      override val nonce: Long = -1
+      override val nonce: Long = 0
       override val target: BigInt =
-        new BigInteger("00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
+        //new BigInteger("00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
+        new BigInteger("000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
     })
 
   override def formBlockData(data: BitcoinConsensusBlockData): BlockField[BitcoinConsensusBlockData] =
@@ -146,9 +153,9 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
   val generatingBalanceDepth: Int = EffectiveBalanceDepth
 }
 
-
 object BitcoinConsensusModule {
   val NonceLength = 8
   val EffectiveBalanceDepth = 50
-  val InitialMiningReward = 50
+  val InitialBlockReward = 50
+  val BlockRewardHalvingInterval = 210000
 }
