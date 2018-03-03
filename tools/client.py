@@ -25,7 +25,7 @@ def request(host, method, api, args, data=None):
     :param api (str): API to use
     :param args (list[str]): list of arguments for the API
     :param data (dict): data to submit
-    :return (str): response from the node
+    :return (dict): response from the node
     """
     url = host + api
     for arg in args:
@@ -82,14 +82,31 @@ def get_all_addresses(host):
     Get the list of all addresses in the network.
 
     :param host: host to get the list of peers from
+    :return: list of pairs of IP addresses and accounts
     """
     addresses = []
     
     for peer in request(host, "GET", "/peers/all", [])[0]:
-        url = "http://" + peer["address"].split("/")[1].split(":")[0] + ":9085"
-        addresses.append(request(url, "GET", "/addresses", [])[0])
+        ip = peer["address"].split("/")[1].split(":")[0]
+        url = "http://" + ip + ":9085"
+        addresses.append((ip, request(url, "GET", "/addresses", [])[0]))
         
-    return addresses
+    return sorted(addresses)
+
+def get_all_balances(host):
+    """
+    Get the balances of all known nodes.
+
+    :param host: host to get the list of peers from
+    :return: list of pairs of an address and its balance
+    """
+    balances = []
+    addresses = get_all_addresses(host)
+
+    for address in addresses:
+        reply = request(host, "GET", "/addresses/balance", [address[1]])
+        balances.append((address[1], reply["balance"]))
+    return balances
 
 def split_foundation_tokens(host):
     """
@@ -108,11 +125,11 @@ def split_foundation_tokens(host):
 
     # Send tokens to other nodes
     for address in addresses:
-        if address != this_address:
+        if address[1] != this_address:
             data = {"amount": amount,
                     "fee": 1,
                     "sender": this_address,
-                    "recipient": address}
+                    "recipient": address[1]}
             pprint(request(host, "POST", "/payment", [], data))
 
 def make_random_transactions(host, n, lower=1, upper=100, fee=1):
@@ -131,14 +148,14 @@ def make_random_transactions(host, n, lower=1, upper=100, fee=1):
     for _ in range(n):
         sender = random.choice(addresses)
         recipient = sender
-        while sender == recipient:
+        while sender[1] == recipient[1]:
             recipient = random.choice(addresses)
         amount = random.randint(lower, upper)
         data = {"amount": amount,
                 "fee": 1,
-                "sender": sender,
-                "recipient": recipient}
-        pprint(request(host, "POST", "/payment", [], data))
+                "sender": sender[1],
+                "recipient": recipient[1]}
+        pprint(request("http://" + sender[0] + ":9085", "POST", "/payment", [], data))
 
 def test():
     host = "http://localhost:9085"
@@ -214,30 +231,38 @@ def main():
             pprint(request(host, "GET", "/transactions/address", [command[1]]))
         elif command[0] == "pending":
             pprint(request(host, "GET", "/transactions/unconfirmed", []))
+        elif command[0] == "rand":
+            make_random_transactions(host, 30, 1, 20)
         elif command[0] == "read":
             if len(command) < 2:
                 print("Error: No argument")
                 continue
             readfile(command[1])
+        elif command[0] == "bals":
+            for balance in get_all_balances(host):
+                print("{0}: {1}".format(balance[0], balance[1]))
         elif command[0] == "help":
-            print("balance {address}")
-            print("addresses")
-            print("alladdrs")
-            print("genesis")
-            print("blockat {height}")
-            print("height")
-            print("last")
-            print("target [height]")
-            print("gensig [height]")
-            print("genbal {address}")
-            print("pay {amount} {fee} {sender} {recipient}")
-            print("peers")
-            print("allpeers")
-            print("tinfo {transaction signature}")
-            print("tlist {address}")
-            print("pending")
-            print("help")
-            print("exit")
+            print("balance {address}: Show the balance of an address")
+            print("bals: Show the balances of all nodes in the network")
+            print("addresses: Show all addresses of this node")
+            print("alladdrs: Show all addresses in the network")
+            print("genesis: Show the genesis block data")
+            print("blockat {height}: Show the information about a block")
+            print("height: Show the current height of the blockchain")
+            print("last: Show the last block data")
+            print("target [height]: Show the base target of a block (Nxt only)")
+            print("gensig [height]: Show the generation signature of a block (Nxt only)")
+            print("genbal {address}: Show the balance of an address (Nxt only)")
+            print("pay {amount} {fee} {sender} {recipient}: Make a payment")
+            print("peers: Show the list of the connected peers")
+            print("allpeers: Show all known peers")
+            print("tinfo {transaction signature}: Get the transaction info")
+            print("tlist {address}: Get the list of transactions where specified address has been involved")
+            print("pending: Get the list of unconfirmed transactions")
+            print("rand: Make random transactions")
+            print("read {filename}: Read a file and batch process the commands")
+            print("help: Show the list of commands")
+            print("exit: Close this program")
         elif command[0] == "exit":
             break
         elif command[0] == "test":

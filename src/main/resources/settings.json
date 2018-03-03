@@ -17,7 +17,7 @@
   "rpcPort": 9085,
   "rpcAllowed": [],
   "maxRollback": 100,
-  "blockGenerationDelay": 1000,
+  "blockGenerationDelay": 0,
   "genesisTimestamp": 1460952000000,
   "cors": false,
   "offlineGeneration": true,

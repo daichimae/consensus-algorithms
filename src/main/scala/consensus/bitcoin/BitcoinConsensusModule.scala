@@ -47,9 +47,8 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
     val forger = block.consensusModule.generators(block).ensuring(_.size == 1).head
     val fee = block.transactions.map(_.fee).sum
     val height = block.transactionModule.blockStorage.history.height()
-    val blockReward =
-      if (height == 1) 0
-      else InitialBlockReward / scala.math.pow(2, height / BlockRewardHalvingInterval).toInt
+    // Block reward is halved every specified number of blocks.
+    val blockReward = InitialBlockReward / scala.math.pow(2, height / BlockRewardHalvingInterval).toInt
 
     Map(forger -> (fee + blockReward))
   }
@@ -107,8 +106,8 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
     val hash = calculateBlockHash(newBlock)
 
-    log.debug(s"hash: $hash, target: $currentTarget, generating ${hash < currentTarget}, eta $eta, " +
-      s"nonce:  $generatedNonce")
+    //log.debug(s"hash: $hash, target: $currentTarget, generating ${hash < currentTarget}, eta $eta, " +
+    //  s"nonce:  $generatedNonce")
 
     if (hash < currentTarget) {
       log.debug(s"Build block with ${unconfirmed.asInstanceOf[Seq[Transaction]].size} transactions")
@@ -134,7 +133,7 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
       override val nonce: Long = 0
       override val target: BigInt =
         //new BigInteger("00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
-        new BigInteger("000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
+        new BigInteger("0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
     })
 
   override def formBlockData(data: BitcoinConsensusBlockData): BlockField[BitcoinConsensusBlockData] =
@@ -158,4 +157,5 @@ object BitcoinConsensusModule {
   val EffectiveBalanceDepth = 50
   val InitialBlockReward = 50
   val BlockRewardHalvingInterval = 210000
+  val DifficultyAdjustmentInterval = 2016
 }
