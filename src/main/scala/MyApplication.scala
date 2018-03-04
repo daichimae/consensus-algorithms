@@ -5,12 +5,14 @@ import scorex.account.Account
 import scorex.api.http._
 import scorex.app.{Application, ApplicationVersion}
 import scorex.block.BlockField
+import scorex.block.Block
 import scorex.consensus.nxt.NxtLikeConsensusModule
 import scorex.consensus.nxt.api.http.NxtConsensusApiRoute
 import scorex.network._
 import scorex.settings.Settings
 import scorex.transaction.SimpleTransactionModule.StoredInBlock
 import scorex.transaction._
+import scorex.utils.NTP
 
 import scala.reflect.runtime.universe._
 
@@ -75,6 +77,13 @@ class MyApplication(val settingsFilename: String) extends Application {
 
   // Create your custom messages and add them to additionalMessageSpecs
   override lazy val additionalMessageSpecs = TransactionalMessagesRepo.specs
+
+  override def checkGenesis(): Unit = {
+    if (transactionModule.blockStorage.history.isEmpty) {
+      transactionModule.blockStorage.appendBlock(Block.genesis(NTP.correctedTime()))
+      log.info("Genesis block has been added to the state")
+    }
+  }.ensuring(transactionModule.blockStorage.history.height() >= 1)
 
   // Start additional actors
   actorSystem.actorOf(Props(classOf[UnconfirmedPoolSynchronizer], this))

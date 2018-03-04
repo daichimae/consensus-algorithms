@@ -39,6 +39,31 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
       MessageDigest.getInstance("SHA-256").digest(block.bytes)))
   }
 
+  private def calculateDifficulty[TransactionalBlockData]
+  (block:Block)(implicit transactionModule: TransactionModule[TransactionalBlockData]): BigInt = {
+    val height = block.transactionModule.blockStorage.history.height()
+    if (height % DifficultyAdjustmentBlockInterval == 0) {
+      val lastTimestamp =
+        block.transactionModule.blockStorage.history.parent(block, DifficultyAdjustmentBlockInterval - 1) match {
+          case Some(i) => i.timestampField.value
+          case None => 0l
+        }
+      if (lastTimestamp == 0) consensusBlockData(block).target
+      else {
+        val timeElapsed = NTP.correctedTime() - lastTimestamp
+        var correctionFactor = DifficultyAdjustmentTimeInterval.toDouble / timeElapsed
+        if (correctionFactor > 4)
+          correctionFactor = 4.0
+        else if (correctionFactor < 1.0 / 4)
+          correctionFactor = 1.0 / 4
+        (BigDecimal(consensusBlockData(block).target) / correctionFactor).toBigInt()
+      }
+    } else {
+      consensusBlockData(block).target
+    }
+  }
+
+
   override def isValid[TransactionalBlockData]
   (block: Block)(implicit transactionModule: TransactionModule[TransactionalBlockData]): Boolean =
     calculateBlockHash(block) < consensusBlockData(block).target
@@ -64,23 +89,18 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
   override def generateNextBlock[TransactionalBlockData](account: PrivateKeyAccount)
   (implicit transactionModule: TransactionModule[TransactionalBlockData]): Future[Option[Block]] = {
     val lastBlock = transactionModule.blockStorage.history.lastBlock
-    val lastBlockConsensusData = consensusBlockData(lastBlock)
-
-    val lastBlockTime = lastBlock.timestampField.value
-
     val currentTime = NTP.correctedTime()
 
     // Generate a random number between 0 to 2^32 - 1 (unsigned 32-bit integer)
     val generatedNonce = (new scala.util.Random).nextInt().toLong + 2147483648l
-    val currentTarget = lastBlockConsensusData.target
+    val currentTarget = calculateDifficulty(lastBlock)
 
     val consensusData = new BitcoinConsensusBlockData {
       override val nonce: Long = generatedNonce
       override val target: BigInt = currentTarget
     }
 
-    val eta = (currentTime - lastBlockTime) / 1000
-
+    val eta = (currentTime - lastBlock.timestampField.value) / 1000
     val unconfirmed = transactionModule.packUnconfirmed()
 
     /*val blockTry = Try(Block.buildAndSign(
@@ -110,6 +130,8 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
     //  s"nonce:  $generatedNonce")
 
     if (hash < currentTarget) {
+      log.debug(s"hash: $hash, target: $currentTarget, generating ${hash < currentTarget}, eta $eta, " +
+          s"nonce:  $generatedNonce")
       log.debug(s"Build block with ${unconfirmed.asInstanceOf[Seq[Transaction]].size} transactions")
       log.debug(s"Block time interval is $eta seconds ")
       Future(Some(newBlock))
@@ -131,9 +153,7 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
   override def genesisData: BlockField[BitcoinConsensusBlockData] =
     BitcoinConsensusBlockField(new BitcoinConsensusBlockData {
       override val nonce: Long = 0
-      override val target: BigInt =
-        //new BigInteger("00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
-        new BigInteger("0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
+      override val target: BigInt = InitialTarget
     })
 
   override def formBlockData(data: BitcoinConsensusBlockData): BlockField[BitcoinConsensusBlockData] =
@@ -157,5 +177,8 @@ object BitcoinConsensusModule {
   val EffectiveBalanceDepth = 50
   val InitialBlockReward = 50
   val BlockRewardHalvingInterval = 210000
-  val DifficultyAdjustmentInterval = 2016
+  val DifficultyAdjustmentBlockInterval = 2016
+  val DifficultyAdjustmentTimeInterval = 1209600000 // 2 weeks in milliseconds
+  //val InitialTarget = new BigInteger("00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
+  val InitialTarget = new BigInteger("0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
 }
