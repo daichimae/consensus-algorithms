@@ -7,7 +7,7 @@ import scorex.crypto.encode.Base58
 
 /**
   * This class represents a part of a block, wrapping the data that is used for
-  * Proof-of-Work, and provides binary & json serializations.
+  * Proof-of-Work, and provides binary & json serialization.
   *
   * @author Daichi Mae
   */
