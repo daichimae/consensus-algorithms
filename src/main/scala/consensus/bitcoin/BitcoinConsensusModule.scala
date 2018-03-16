@@ -70,7 +70,9 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
           correctionFactor = 1.0 / 4
 
         // The new target is calculated as (last target / correction factor).
-        (BigDecimal(consensusBlockData(block).target) / correctionFactor).toBigInt()
+        val newTarget = (BigDecimal(consensusBlockData(block).target) / correctionFactor).toBigInt()
+        log.debug(s"correction factor: $correctionFactor, new target: $newTarget")
+        newTarget
       }
     } else {
       // Use the current target.
@@ -144,13 +146,16 @@ class BitcoinConsensusModule extends ConsensusModule[BitcoinConsensusBlockData]
 
     val hash = calculateBlockHash(newBlock)
 
-    log.debug(s"hash: $hash, target: $currentTarget, generating ${hash < currentTarget}, eta $eta, " +
-      s"nonce:  ${consensusData.nonce}")
+    /*log.debug(s"hash: $hash, target: $currentTarget, generating ${hash < currentTarget}, eta $eta, " +
+      s"nonce:  ${consensusData.nonce}")*/
 
     if (hash < currentTarget) {
       // Found a valid nonce and successfully mined a block.
+      log.debug(s"height: ${blockScore(lastBlock)+1}, hash: $hash, target: $currentTarget, eta: $eta, " +
+        s"timestamp: $currentTime, nonce: ${consensusData.nonce}, "+
+      s"block id: ${newBlock.encodedId}, last block id: ${lastBlock.encodedId}")
       log.debug(s"Build block with ${unconfirmed.asInstanceOf[Seq[Transaction]].size} transactions")
-      log.debug(s"Block time interval is $eta seconds ")
+      //log.debug(s"Block time interval is $eta seconds ")
       Future(Some(newBlock))
     } else {
       Future(None)
@@ -187,7 +192,7 @@ object BitcoinConsensusModule {
   val DifficultyAdjustmentBlockInterval = 2016
   val DifficultyAdjustmentTimeInterval = 1209600000 // 2 weeks in milliseconds
   //val InitialTarget = new BigInteger("00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
-  val InitialTarget = new BigInteger("0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
+  val InitialTarget = new BigInteger("000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
 
   var nonce = 0: Long
   var LastBlockTimeStamp = 0: Long
