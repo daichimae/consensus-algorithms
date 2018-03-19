@@ -162,7 +162,7 @@ def test():
     split_foundation_tokens(host)
 
 def main():
-    host = "http://172.17.0.3:9085"
+    host = "http://172.17.0.2:9085"
     #host = "http://localhost:9085"
     command = [""]
     
@@ -266,8 +266,13 @@ def main():
         elif command[0] == "exit":
             break
         elif command[0] == "test":
-            split_foundation_tokens(host)
-            make_random_transactions(host, 30, 1, 100)
+            pprint(request("http://172.17.0.2:9085", "GET", "/blocks/height", []))
+            pprint(request("http://172.17.0.3:9085", "GET", "/blocks/height", []))
+            pprint(request("http://172.17.0.4:9085", "GET", "/blocks/height", []))
+            pprint(request("http://172.17.0.5:9085", "GET", "/blocks/height", []))
+            pprint(request("http://172.17.0.6:9085", "GET", "/blocks/height", []))
+            #split_foundation_tokens(host)
+            #make_random_transactions(host, 30, 1, 100)
         else:
             print("Invalid command: {0}".format(command[0]))
     

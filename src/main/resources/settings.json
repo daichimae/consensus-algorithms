@@ -1,27 +1,23 @@
 {
   "p2p": {
+    "upnp": "false",
     "bindAddress": "0.0.0.0",
-    "upnp": false,
-    "upnpGatewayTimeout": 7000,
-    "upnpDiscoverTimeout": 3000,
     "port": 9084,
     "knownPeers": [
-      "172.17.0.3:9084",
-      "172.17.0.4:9084",
-      "172.17.0.5:9084",
-      "172.17.0.6:9084",
-      "172.17.0.7:9084"
+      "KNOWN_IP:9084"
     ],
-    "maxConnections": 10
+    "maxConnections": 10,
+    "nodeName": "NODE_NAME",
+    "myAddress": "MY_ADDRESS"
   },
   "walletDir": "/tmp/scorex/wallet",
   "dataDir": "/tmp/scorex/data",
   "rpcPort": 9085,
   "rpcAllowed": [],
   "maxRollback": 100,
-  "blockGenerationDelay": 0,
+  "blockGenerationDelay": 1000,
   "cors": false,
-  "offlineGeneration": true,
+  "offlineGeneration": false,
   "walletPassword": "",
-  "walletSeed": "x26HLcjg"
+  "walletSeed": "NODE_NAME"
 }
