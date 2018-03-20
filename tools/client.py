@@ -157,6 +157,22 @@ def make_random_transactions(host, n, lower=1, upper=100, fee=1):
                 "recipient": recipient[1]}
         pprint(request("http://" + sender[0] + ":9085", "POST", "/payment", [], data))
 
+def collect_data(host):
+    """
+    Save the height, target value and the timestamp of each block in the
+    blockchainin a CSV file.
+
+    :param host: host to get the history from
+    """
+    height = request(host, "GET", "/blocks/height", [])["height"]
+    file = open("blocks.log", "w")
+    for i in range(1, height + 1):
+        block = request(host, "GET", "/blocks/at", [str(i)])
+        timestamp = block["timestamp"]
+        target = block["bitcoin-consensus"]["target"]
+        file.write("{0},{1},{2}\n".format(i, timestamp, target))
+    file.close()
+
 def test():
     host = "http://localhost:9085"
     split_foundation_tokens(host)
@@ -241,6 +257,8 @@ def main():
         elif command[0] == "bals":
             for balance in get_all_balances(host):
                 print("{0}: {1}".format(balance[0], balance[1]))
+        elif command[0] == "save":
+            collect_data(host)
         elif command[0] == "help":
             print("balance {address}: Show the balance of an address")
             print("bals: Show the balances of all nodes in the network")
@@ -260,17 +278,22 @@ def main():
             print("tlist {address}: Get the list of transactions where specified address has been involved")
             print("pending: Get the list of unconfirmed transactions")
             print("rand: Make random transactions")
+            print("save: Save the blockchain data in a CSV file")
             print("read {filename}: Read a file and batch process the commands")
             print("help: Show the list of commands")
             print("exit: Close this program")
         elif command[0] == "exit":
+            collect_data(host)
             break
         elif command[0] == "test":
-            pprint(request("http://172.17.0.2:9085", "GET", "/blocks/height", []))
-            pprint(request("http://172.17.0.3:9085", "GET", "/blocks/height", []))
-            pprint(request("http://172.17.0.4:9085", "GET", "/blocks/height", []))
-            pprint(request("http://172.17.0.5:9085", "GET", "/blocks/height", []))
-            pprint(request("http://172.17.0.6:9085", "GET", "/blocks/height", []))
+            for peer in get_all_addresses(host):
+                print("{0}: ".format(peer[0]), end='')
+                pprint(request("http://{0}:9085".format(peer[0]), "GET", "/blocks/height", []))
+            #pprint(request("http://172.17.0.2:9085", "GET", "/blocks/height", []))
+            #pprint(request("http://172.17.0.3:9085", "GET", "/blocks/height", []))
+            #pprint(request("http://172.17.0.4:9085", "GET", "/blocks/height", []))
+            #pprint(request("http://172.17.0.5:9085", "GET", "/blocks/height", []))
+            #pprint(request("http://172.17.0.6:9085", "GET", "/blocks/height", []))
             #split_foundation_tokens(host)
             #make_random_transactions(host, 30, 1, 100)
         else:

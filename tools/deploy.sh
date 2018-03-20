@@ -77,4 +77,5 @@ do
     docker cp bcnode$i:/home/scorex/scorex-errors.log ./node$i-errors.log
     docker stop bcnode$i
 done
+docker cp bcclient:/home/scorex/blocks.log ./blocks.log
 docker stop bcclient

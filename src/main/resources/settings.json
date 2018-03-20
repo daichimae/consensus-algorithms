@@ -15,7 +15,7 @@
   "rpcPort": 9085,
   "rpcAllowed": [],
   "maxRollback": 100,
-  "blockGenerationDelay": 1000,
+  "blockGenerationDelay": 0,
   "cors": false,
   "offlineGeneration": false,
   "walletPassword": "",
