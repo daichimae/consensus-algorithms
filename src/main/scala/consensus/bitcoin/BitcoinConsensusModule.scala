@@ -189,8 +189,10 @@ object BitcoinConsensusModule {
   val NonceByteLength = 8
   val InitialBlockReward = 50
   val BlockRewardHalvingInterval = 210000
-  val DifficultyAdjustmentBlockInterval = 2016
-  val DifficultyAdjustmentTimeInterval = 1209600000 // 2 weeks in milliseconds
+  val DifficultyAdjustmentBlockInterval = 50
+  val DifficultyAdjustmentTimeInterval = 30000000 // 500 minutes in milliseconds
+  //val DifficultyAdjustmentBlockInterval = 2016
+  //val DifficultyAdjustmentTimeInterval = 2 weeks in milliseconds
   //val InitialTarget = new BigInteger("00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
   val InitialTarget = new BigInteger("000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
 
