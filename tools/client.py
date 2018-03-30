@@ -169,9 +169,27 @@ def collect_data(host):
     for i in range(1, height + 1):
         block = request(host, "GET", "/blocks/at", [str(i)])
         timestamp = block["timestamp"]
-        target = block["bitcoin-consensus"]["target"]
+        target = decode_base58(block["bitcoin-consensus"]["target"])
         file.write("{0},{1},{2}\n".format(i, timestamp, target))
     file.close()
+
+def decode_base58(string):
+    """
+    Decode a base58 string into an integer.
+
+    :param string: base58 string
+    :return: corresponding integer
+    """
+    alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+    result = 0
+    product = 1
+    string = string[::-1]
+    for char in string:
+        result += product * alphabet.index(char)
+        product = product * len(alphabet)
+
+    return result
 
 def test():
     host = "http://localhost:9085"
